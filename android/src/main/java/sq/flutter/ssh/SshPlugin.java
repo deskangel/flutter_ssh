@@ -274,17 +274,36 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
           ChannelExec channel = (ChannelExec) session.openChannel("exec");
 
           InputStream in = channel.getInputStream();
+          InputStream err = channel.getErrStream();
 
           channel.setCommand(args.get("cmd").toString());
           channel.connect();
 
           String line, response = "";
-          BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-          while ((line = reader.readLine()) != null) {
-            response += line + "\r\n";
+
+          while (!channel.isEOF() && !channel.isClosed()) {
+            Log.i(LOGTAG, "waiting for channel finished.");
+            Thread.sleep(500);
           }
 
-          result.success(response);
+          int exitCode = channel.getExitStatus();
+          if (0 == exitCode) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            while ((line = reader.readLine()) != null) {
+              response += line + "\r\n";
+            }
+          } else {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(err));
+            while ((line = reader.readLine()) != null) {
+              response += line + "\r\n";
+            }
+          }
+
+          HashMap<String, String> value = new HashMap<>();
+          value.put("code", String.valueOf(exitCode));
+          value.put("output", response);
+
+          result.success(value);
         } catch (Exception error) {
           Log.e(LOGTAG, "Error executing command: " + error.getMessage());
           result.error("execute_failure", error.getMessage(), null);

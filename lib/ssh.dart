@@ -70,14 +70,15 @@ class SSHClient {
     return result;
   }
 
-  Future<String> execute(String cmd) async {
+  Future<Map<String, String>> execute(String cmd) async {
     var result = await _channel.invokeMethod('execute', {
       "id": id,
       "cmd": cmd,
     });
-    return result;
+
+    return Map<String, String>.from(result);
   }
-  
+
   Future<String> portForwardL(int rport, int lport, String rhost) async {
     var result = await _channel.invokeMethod('portForwardL', {
       "id": id,
