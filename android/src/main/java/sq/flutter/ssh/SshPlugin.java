@@ -267,8 +267,10 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
       public void run() {
         try {
           SSHClient client = getClient(args.get("id").toString(), result);
-          if (client == null)
+          if (client == null) {
+            result.error("execute_failure", "failed to get client", null);
             return;
+          }
 
           Session session = client._session;
           ChannelExec channel = (ChannelExec) session.openChannel("exec");
