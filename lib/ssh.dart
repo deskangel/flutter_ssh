@@ -25,6 +25,7 @@ class SSHClient {
   dynamic passwordOrKey;
   StreamSubscription<dynamic> stateSubscription;
   Callback shellCallback;
+  Callback execStreamCallback;
   Callback uploadCallback;
   Callback downloadCallback;
 
@@ -47,6 +48,10 @@ class SSHClient {
       case "Shell":
         if (shellCallback != null && result["key"] == id)
           shellCallback(result["value"]);
+        break;
+      case "executeStream":
+        if (execStreamCallback != null && result["key"] == id)
+          execStreamCallback(result["value"]);
         break;
       case "DownloadProgress":
         if (downloadCallback != null && result["key"] == id)
@@ -77,6 +82,23 @@ class SSHClient {
     });
 
     return Map<String, String>.from(result);
+  }
+
+  Future<Map<String, String>> executeStream(String cmd, {Callback callback}) async {
+    execStreamCallback = callback;
+    var result = await _channel.invokeMethod('executeStream', {
+      "id": id,
+      "cmd": cmd,
+    });
+
+    return Map<String, String>.from(result);
+  }
+
+  Future stopExecuteStream() async {
+    execStreamCallback = null;
+    await _channel.invokeMethod('stopExecuteStream', {
+      "id": id,
+    });
   }
 
   Future<String> portForwardL(int rport, int lport, String rhost) async {
@@ -216,6 +238,7 @@ class SSHClient {
   }
 
   disconnect() {
+    execStreamCallback = null;
     shellCallback = null;
     uploadCallback = null;
     downloadCallback = null;

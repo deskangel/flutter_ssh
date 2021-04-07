@@ -142,6 +142,10 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
       connectToHost((HashMap) call.arguments, result);
     } else if (call.method.equals("execute")) {
       execute((HashMap) call.arguments, result);
+    } else if (call.method.equals("executeStream")) {
+      executeStream((HashMap) call.arguments, result);
+    } else if (call.method.equals("stopExecuteStream")) {
+      stopExecuteStream((HashMap) call.arguments);
     } else if (call.method.equals("portForwardL")) {
       portForwardL((HashMap) call.arguments, result);
     } else if (call.method.equals("startShell")) {
@@ -258,6 +262,100 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
           Log.e(LOGTAG, "Connection failed: " + error.getMessage());
           result.error("connection_failure", error.getMessage(), null);
         }
+      }
+    }).start();
+  }
+
+
+  private void executeStream(final HashMap args, final Result result) {
+    new Thread(new Runnable() {
+      public void run() {
+        try {
+          SSHClient client = getClient(args.get("id").toString(), result);
+          if (client == null) {
+            result.error("execute_failure", "failed to get client", null);
+            return;
+          }
+
+          Session session = client._session;
+          ChannelExec channel = (ChannelExec) session.openChannel("exec");
+
+          InputStream in = channel.getInputStream();
+          InputStream err = channel.getErrStream();
+
+          channel.setCommand(args.get("cmd").toString());
+          channel.connect();
+
+          String line, response = "";
+
+
+          if (!channel.isEOF() && !channel.isClosed()) {
+//            Log.i(LOGTAG, "waiting for channel finished.");
+//            Thread.sleep(500);
+
+            client._channel = channel;
+            client._bufferedReader = new BufferedReader(new InputStreamReader(in));
+            while (client._bufferedReader != null && (line = client._bufferedReader.readLine()) != null) {
+              Map<String, Object> map = new HashMap<>();
+              map.put("name", "executeStream");
+              map.put("key", client._key);
+              map.put("value", line + "\n");
+              sendEvent(map);
+            }
+          }
+
+          int exitCode = channel.getExitStatus();
+          if (0 == exitCode) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            while ((line = reader.readLine()) != null) {
+              response += line + "\r\n";
+            }
+          } else {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(err));
+            while ((line = reader.readLine()) != null) {
+              response += line + "\r\n";
+            }
+          }
+
+          HashMap<String, String> value = new HashMap<>();
+          value.put("code", String.valueOf(exitCode));
+          value.put("output", response);
+
+          abortExecuteStream(client);
+
+          result.success(value);
+        } catch (Exception error) {
+          Log.e(LOGTAG, "Error executing command: " + error.getMessage());
+          result.error("execute_failure", error.getMessage(), null);
+        }
+      }
+    }).start();
+  }
+
+  private void abortExecuteStream(SSHClient client) {
+    try {
+      if (client == null)
+        return;
+
+      if (client._channel != null) {
+        client._channel.disconnect();
+        client._channel = null;
+      }
+
+      if (client._bufferedReader != null) {
+        client._bufferedReader.close();
+        client._bufferedReader = null;
+      }
+    } catch (IOException error) {
+      Log.e(LOGTAG, "Error closing execute stream:" + error.getMessage());
+    }
+  }
+
+  private void stopExecuteStream(final HashMap args) {
+    new Thread(new Runnable()  {
+      public void run() {
+        SSHClient client = clientPool.get(args.get("id"));
+        abortExecuteStream(client);
       }
     }).start();
   }
