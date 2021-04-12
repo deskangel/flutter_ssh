@@ -178,6 +178,8 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
       disconnectSFTP((HashMap) call.arguments);
     } else if (call.method.equals("disconnect")) {
       disconnect((HashMap) call.arguments);
+    } else if (call.method.equals("isConnected")) {
+      isConnected((HashMap) call.arguments, result);
     } else {
       result.notImplemented();
     }
@@ -289,9 +291,9 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
           String line, response = "";
 
 
-          if (!channel.isEOF() && !channel.isClosed()) {
-//            Log.i(LOGTAG, "waiting for channel finished.");
-//            Thread.sleep(500);
+          while (!channel.isEOF() && !channel.isClosed()) {
+            Log.i(LOGTAG, "waiting for channel finished.");
+            Thread.sleep(500);
 
             client._channel = channel;
             client._bufferedReader = new BufferedReader(new InputStreamReader(in));
@@ -719,6 +721,17 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
     if (client == null)
       return;
     client._session.disconnect();
+  }
+
+  private void isConnected(final HashMap args, final Result result) {
+    SSHClient client = clientPool.get(args.get("id"));
+    if (client == null) {
+      result.success("false");
+    } else if ( client._session == null || ! client._session.isConnected()) {
+      result.success("false");
+    } else {
+      result.success("true");
+    }
   }
 
   private void sendEvent(Map<String, Object> event) {
