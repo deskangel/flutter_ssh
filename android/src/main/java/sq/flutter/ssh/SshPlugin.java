@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -462,15 +463,18 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
 
           result.success("shell_started");
 
-          String line;
-          while (client._bufferedReader != null && (line = client._bufferedReader.readLine()) != null) {
+          char[] text = new char[4096];
+          Arrays.fill(text, (char) 0);
+          int num = -1;
+          while (client._bufferedReader != null && (-1 != (num = client._bufferedReader.read(text)))) {
             Map<String, Object> map = new HashMap<>();
             map.put("name", "Shell");
             map.put("key", key);
-            map.put("value", line + '\n');
+            map.put("value", String.copyValueOf(text, 0, num));
             sendEvent(map);
+            Arrays.fill(text, (char) 0);
           }
-
+          Log.d(LOGTAG, "......start shell: exit while loop");
         } catch (Exception error) {
           Log.e(LOGTAG, "Error starting shell: " + error.getMessage());
           result.error("shell_failure", error.getMessage(), null);
