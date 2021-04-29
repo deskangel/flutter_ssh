@@ -123,6 +123,18 @@ class SSHClient {
     return result;
   }
 
+  ///
+  /// set shell size in columns (characters) and rows
+  ///
+  Future<String> setShellSize(int columns, int rows) async {
+    var result = await _channel.invokeMethod('setShellSize', {
+      "id": id,
+      "columns": columns,
+      "rows": rows,
+    });
+    return result;
+  }
+
   Future<String> writeToShell(String cmd) async {
     var result = await _channel.invokeMethod('writeToShell', {
       "id": id,

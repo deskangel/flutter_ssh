@@ -150,6 +150,8 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
       portForwardL((HashMap) call.arguments, result);
     } else if (call.method.equals("startShell")) {
       startShell((HashMap) call.arguments, result);
+    } else if (call.method.equals("setShellSize")) {
+      setShellSize((HashMap) call.arguments, result);
     } else if (call.method.equals("writeToShell")) {
       writeToShell((HashMap) call.arguments, result);
     } else if (call.method.equals("closeShell")) {
@@ -473,6 +475,21 @@ public class SshPlugin implements MethodCallHandler, StreamHandler {
           Log.e(LOGTAG, "Error starting shell: " + error.getMessage());
           result.error("shell_failure", error.getMessage(), null);
         }
+      }
+    }).start();
+  }
+
+  private void setShellSize(final HashMap args, final Result result) {
+    new Thread(new Runnable()  {
+      public void run() {
+        SSHClient client = getClient(args.get("id").toString(), result);
+        if (client == null || client._channel == null)
+          return;
+
+        int columns = (int)args.get("columns");
+        int rows = (int)args.get("rows");
+        ((ChannelShell)client._channel).setPtySize(columns, rows, columns * 8, rows * 12);
+        result.success("set_done");
       }
     }).start();
   }
